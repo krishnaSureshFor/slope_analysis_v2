@@ -47,6 +47,21 @@ const LogoIcon = () => (
   </svg>
 );
 
+const MenuIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+);
+
+const CloseIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+);
+
 // --- Components ---
 
 const App = () => {
@@ -55,9 +70,22 @@ const App = () => {
   const [kmlLayer, setKmlLayer] = useState(null);
   const [resultImage, setResultImage] = useState(null);
   const [geoData, setGeoData] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Responsive Check
+  useEffect(() => {
+    const checkMobile = () => {
+        setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Initialize Map
   useEffect(() => {
@@ -81,7 +109,17 @@ const App = () => {
     }).addTo(map);
 
     mapInstanceRef.current = map;
+    
+    // Fix map size when resizing or toggling sidebar
+    setTimeout(() => { map.invalidateSize(); }, 200);
   }, []);
+
+  // Invalidate map size when sidebar toggles
+  useEffect(() => {
+      if (mapInstanceRef.current) {
+          setTimeout(() => { mapInstanceRef.current.invalidateSize(); }, 300);
+      }
+  }, [isSidebarOpen]);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -352,6 +390,11 @@ const App = () => {
 
     setStatus('done');
     setStatusMessage('Analysis Complete. Ready to download.');
+
+    // Auto-hide sidebar on mobile after success
+    if (window.innerWidth <= 768) {
+        setIsSidebarOpen(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -396,13 +439,19 @@ const App = () => {
   return (
     <div className="app-container">
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
         <div className="header">
           <div className="brand">
             <LogoIcon />
             <h1>Slope Analysis Portal</h1>
           </div>
-          <p>Extract DEM & Process Slope from KML</p>
+          {isMobile && (
+              <button className="btn-close-sidebar" onClick={() => setIsSidebarOpen(false)}>
+                  <CloseIcon />
+                  <span style={{marginLeft: '5px'}}>View Map</span>
+              </button>
+          )}
+          {!isMobile && <p>Extract DEM & Process Slope from KML</p>}
         </div>
 
         <div className="control-group">
@@ -448,12 +497,31 @@ const App = () => {
       {/* Map Area */}
       <div className="map-wrapper">
         <div id="map" ref={mapRef}></div>
+        
+        {/* Mobile Sidebar Toggle (Floating Button) */}
+        {!isSidebarOpen && (
+            <button className="btn-menu-toggle" onClick={() => setIsSidebarOpen(true)}>
+                <MenuIcon />
+            </button>
+        )}
       </div>
 
       <style>{`
-        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; background: #222; }
+        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; background: #222; position: relative; }
         
-        .sidebar { width: 340px; background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); color: white; padding: 20px; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 1000; border-right: 1px solid #334155; }
+        .sidebar { 
+          width: 340px; 
+          background: rgba(30, 41, 59, 0.95); 
+          backdrop-filter: blur(10px); 
+          color: white; 
+          padding: 20px; 
+          display: flex; 
+          flex-direction: column; 
+          box-shadow: 2px 0 10px rgba(0,0,0,0.5); 
+          z-index: 2000; 
+          border-right: 1px solid #334155; 
+          transition: transform 0.3s ease-in-out;
+        }
         
         .header { margin-bottom: 25px; border-bottom: 1px solid #475569; padding-bottom: 15px; }
         .header .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 5px; }
@@ -481,8 +549,74 @@ const App = () => {
         .footer { font-size: 0.75rem; color: #64748b; margin-top: 15px; text-align: center; border-top: 1px solid #334155; padding-top: 15px; }
         .developer-credit { margin-top: 5px; font-weight: 600; color: #94a3b8; }
 
-        .map-wrapper { flex: 1; position: relative; }
-        #map { width: 100%; height: 100%; }
+        .map-wrapper { flex: 1; position: relative; width: 100%; height: 100%; }
+        #map { width: 100%; height: 100%; z-index: 1; }
+
+        /* Mobile specific styles */
+        .btn-close-sidebar {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            width: 100%;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .btn-menu-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1500;
+            background: #1e293b;
+            color: white;
+            border: 1px solid #475569;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Responsive Layout */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                box-sizing: border-box;
+                border-right: none;
+            }
+
+            .sidebar.closed {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .header h1 { font-size: 1.1rem; }
+            
+            /* Hide Leaflet Controls if they are under the menu button */
+            .leaflet-top.leaflet-left {
+                top: 70px; /* Push zoom controls down */
+            }
+        }
 
         /* Custom Scrollbar */
         .legend::-webkit-scrollbar { width: 6px; }
